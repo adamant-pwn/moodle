@@ -158,6 +158,16 @@ Feature: A Teacher can comment in a question
     And I set the field "question_version_dropdown" to "Version 1"
     And I should see "Answer the first question"
 
+  Scenario: External scripts load before filtering the question comments preview
+    Given the following config values are set as admin:
+      | enabletrusttext | 1 |
+    And the following "questions" exist:
+      | questioncategory      | qtype     | name                     | questiontext                                                                                                               |
+      | Default for Test quiz | truefalse | External script question | <span data-mdl-89548>External script not loaded</span><script src="../lib/tests/fixtures/mdl_89548.js"></script> |
+    And I am on the "Test quiz" "mod_quiz > question bank" page logged in as "teacher1"
+    When I click on "0" "link" in the "External script question" "table_row"
+    Then I should see "External script loaded before filtering" in the ".modal-dialog" "css_element"
+
   @javascript
   Scenario: User without system moodle/comment:post capability cannot post comments on question
     Given the following "role capability" exists:
