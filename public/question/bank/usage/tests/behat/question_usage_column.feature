@@ -47,3 +47,14 @@ Feature: Use the qbank plugin manager page for question usage
     And I should see "1" on the usage column
     When I click "1" on the usage column
     Then "Test quiz" "table_row" should exist in the "question-usage_table" "region"
+
+  @javascript
+  Scenario: External scripts load before filtering the question usage preview
+    Given the following config values are set as admin:
+      | enabletrusttext | 1 |
+    And the following "questions" exist:
+      | questioncategory      | qtype     | name                     | questiontext                                                                                                               |
+      | Default for Test quiz | truefalse | External script question | <span data-mdl-89548>External script not loaded</span><script src="../lib/tests/fixtures/mdl_89548.js"></script> |
+    And I am on the "Test quiz" "mod_quiz > question bank" page logged in as "admin"
+    When I click on "0" "link" in the "External script question" "table_row"
+    Then I should see "External script loaded before filtering" in the ".modal-dialog" "css_element"

@@ -47,6 +47,7 @@ const usageEvent = async(questionId, contextId, specificVersion) => {
             modal = await ModalCancel.create({
                 title: Str.get_string('usageheader', 'qbank_usage'),
                 body: Fragment.loadFragment('qbank_usage', 'question_usage', contextId, args),
+                executeExternalScripts: true,
                 large: true,
                 show: true,
             });

@@ -52,6 +52,7 @@ import * as Prefetch from 'core/prefetch';
  * @property {Element|jQuery} [returnElement] The element to focus when closing the modal.
  * @property {boolean} [large=false] Whether the modal should be a large modal.
  * @property {boolean} [isVerticallyCentered=false] Whether the modal should be vertically centered.
+ * @property {boolean} [executeExternalScripts=false] Whether external scripts in a trusted modal body should execute.
  * @property {object} [buttons={}] The buttons to display in the footer as a key => title pair.
  */
 
@@ -74,6 +75,42 @@ const TEMPLATES = {
     LOADING: 'core/loading',
     BACKDROP: 'core/modal_backdrop',
 };
+
+/**
+ * Activate one external script which was inserted into the DOM as inert HTML.
+ *
+ * @param {HTMLScriptElement} scriptNode The inert script element.
+ * @return {Promise} A promise resolved when the script has loaded or failed to load.
+ */
+const activateExternalScript = scriptNode => new Promise(resolve => {
+    const newScript = document.createElement('script');
+    Array.from(scriptNode.attributes).forEach(attribute => {
+        newScript.setAttribute(attribute.name, attribute.value);
+    });
+
+    // Dynamically-created classic scripts default to async. Restore parser ordering when async was not requested.
+    if (!newScript.hasAttribute('async')) {
+        newScript.async = false;
+    }
+
+    newScript.addEventListener('load', resolve, {once: true});
+    newScript.addEventListener('error', resolve, {once: true});
+    scriptNode.parentNode.replaceChild(newScript, scriptNode);
+});
+
+/**
+ * Activate external scripts which were inserted into the DOM as inert HTML.
+ *
+ * Scripts are activated in document order. Load errors do not prevent later scripts or content filtering, matching the
+ * behaviour of external scripts in a full page.
+ *
+ * @param {JQuery} element The element containing inert external scripts.
+ * @return {Promise} A promise resolved when all scripts have loaded or failed to load.
+ */
+const activateExternalScripts = element => element.find('script[src]').get().reduce(
+    (promise, scriptNode) => promise.then(() => activateExternalScript(scriptNode)),
+    Promise.resolve(),
+);
 
 export default class Modal {
     /** @var {string} The type of modal */
@@ -133,6 +170,7 @@ export default class Modal {
         this.hiddenSiblings = [];
         this.isAttached = false;
         this.bodyJS = null;
+        this.executeExternalScripts = false;
         this.footerJS = null;
         this.modalCount = Modal.modalCounter++;
         this.attachmentPoint = document.createElement('div');
@@ -284,8 +322,11 @@ export default class Modal {
         title,
         body,
         footer,
+        executeExternalScripts = false,
         buttons = {},
     } = {}) {
+        this.executeExternalScripts = executeExternalScripts;
+
         if (large) {
             this.setLarge();
         }
@@ -522,9 +563,15 @@ export default class Modal {
         if (typeof value === 'string') {
             // Just set the value if it's a string.
             body.html(value);
-            FilterEvents.notifyFilterContentUpdated(body);
-            this.getRoot().trigger(ModalEvents.bodyRendered, this);
-            this.bodyPromise.resolve(body);
+            const scriptsLoaded = this.executeExternalScripts
+                ? activateExternalScripts(body)
+                : Promise.resolve();
+            scriptsLoaded.then(() => {
+                FilterEvents.notifyFilterContentUpdated(body);
+                this.getRoot().trigger(ModalEvents.bodyRendered, this);
+                this.bodyPromise.resolve(body);
+                return;
+            }).catch(Notification.exception);
         } else {
             const modalPromise = new Pending(`amd-modal-js-pending-id-${this.getModalCount()}`);
             // Otherwise we assume it's a promise to be resolved with
@@ -572,16 +619,30 @@ export default class Modal {
                 contentPromise = value;
             }
 
+            let bodyJavascript = null;
+            let currentHeight = null;
+
             // Now we can actually display the content.
             contentPromise.then((html, js) => {
-                let result = null;
+                bodyJavascript = js;
 
                 if (this.isVisible()) {
                     // If the modal is visible then we should display
                     // the content gracefully for the user.
                     body.css('opacity', 0);
-                    const currentHeight = body.innerHeight();
-                    body.html(html);
+                    currentHeight = body.innerHeight();
+                }
+                body.html(html);
+
+                const scriptsLoaded = this.executeExternalScripts
+                    ? activateExternalScripts(body)
+                    : Promise.resolve();
+                return scriptsLoaded;
+            })
+            .then(() => {
+                let result = null;
+
+                if (this.isVisible()) {
                     // We need to clear any height values we've set here
                     // in order to measure the height of the content being
                     // added. This then allows us to animate the height
@@ -593,19 +654,15 @@ export default class Modal {
                         {height: `${newHeight}px`, opacity: 1},
                         {duration: 150, queue: false}
                     ).promise();
-                } else {
-                    // Since the modal isn't visible we can just immediately
-                    // set the content. No need to animate it.
-                    body.html(html);
                 }
 
-                if (js) {
+                if (bodyJavascript) {
                     if (this.isAttached) {
                         // If we're in the DOM then run the JS immediately.
-                        Templates.runTemplateJS(js);
+                        Templates.runTemplateJS(bodyJavascript);
                     } else {
                         // Otherwise cache it to be run when we're attached.
-                        this.bodyJS = js;
+                        this.bodyJS = bodyJavascript;
                     }
                 }
 
