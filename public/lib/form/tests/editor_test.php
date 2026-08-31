@@ -34,6 +34,52 @@ require_once("{$CFG->libdir}/form/editor.php");
  */
 final class editor_test extends advanced_testcase {
     /**
+     * Test editor file-management capability defaults.
+     */
+    public function test_file_manager_capability(): void {
+        $this->assertFalse(get_texteditor('textarea')->provides_file_manager());
+        $this->assertTrue(get_texteditor('tiny')->provides_file_manager());
+    }
+
+    /**
+     * Test the generic file manager is offered for a source editor.
+     */
+    public function test_generic_file_manager_link(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_user_preference('htmleditor', 'textarea');
+
+        $element = new MoodleQuickForm_editor(
+            'description_editor',
+            'Description',
+            ['id' => 'id_description_editor'],
+            ['context' => \context_system::instance(), 'maxfiles' => -1],
+        );
+        $element->setValue([
+            'text' => '<p>Example</p>',
+            'format' => FORMAT_HTML,
+            'itemid' => file_get_unused_draft_itemid(),
+        ]);
+
+        $html = $element->toHtml();
+        $this->assertStringContainsString('/lib/form/manage_editor_files.php', $html);
+        $this->assertStringContainsString('Manage files', $html);
+
+        $disabled = new MoodleQuickForm_editor(
+            'disabled_editor',
+            'Disabled',
+            ['id' => 'id_disabled_editor'],
+            ['context' => \context_system::instance(), 'maxfiles' => -1, 'enable_filemanagement' => false],
+        );
+        $disabled->setValue([
+            'text' => '<p>Example</p>',
+            'format' => FORMAT_HTML,
+            'itemid' => file_get_unused_draft_itemid(),
+        ]);
+        $this->assertStringNotContainsString('/lib/form/manage_editor_files.php', $disabled->toHtml());
+    }
+
+    /**
      * Test retrieving frozen HTML
      */
     public function test_get_frozen_html(): void {

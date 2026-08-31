@@ -466,6 +466,31 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element implements templatab
                     'course'=>$PAGE->course->id,
                     'sesskey'=>sesskey(),
                     ));
+
+                if ($this->_options['enable_filemanagement'] && $editor->supports_repositories()
+                        && !$editor->provides_file_manager()) {
+                    $managerurl = new moodle_url('/lib/form/manage_editor_files.php', [
+                        'itemid' => $draftitemid,
+                        'context' => $ctx->id,
+                        'maxbytes' => $maxbytes,
+                        'areamaxbytes' => $areamaxbytes,
+                        'maxfiles' => $maxfiles,
+                        'subdirs' => $subdirs,
+                        'return_types' => $this->_options['return_types'],
+                    ]);
+                    $str .= html_writer::div(html_writer::link(
+                        $managerurl,
+                        get_string('managefiles', 'form'),
+                        [
+                            'class' => 'btn btn-secondary',
+                            'target' => '_blank',
+                            'rel' => 'noopener',
+                            'aria-label' => get_string('managefiles', 'form') . ' ' .
+                                get_string('opensinnewwindowbracketed'),
+                        ],
+                    ), 'mt-2');
+                }
+
                 $str .= '<noscript>';
                 $str .= "<div><object type='text/html' data='$editorurl' height='160' width='600' style='border:1px solid #000'></object></div>";
                 $str .= '</noscript>';
