@@ -30,8 +30,10 @@ recursively; unequal existing scalar or array values reject. Administrator packa
 removals cannot be reversed. Contributions on different roots need not agree because
 they use different TeX input instances. Repeated and nested registration rejects.
 
-Each root gets a separate TeX input, output jax and MathDocument, using the site's
+Each root gets a separate TeX input and MathDocument, using the site's
 existing MathJax 4 installation and document options (including the safe handler).
+The output jax is shared so CHTML styles and SVG glyph IDs accumulate across roots;
+plugins cannot contribute output options.
 The shared TeX input is never configured with the contributed options or packages.
 Packages load through MathJax's loader before the scoped input is constructed, even
 when the shared document has already started. Ordinary pages do not load contributed
@@ -77,7 +79,7 @@ Before integration, maintainers should review:
 
 - Whether this JavaScript entry point is the appropriate contribution contract,
   or a PHP hook should define available profiles and registration ordering.
-- Compatibility and cost of one input/output/document per root, including menu,
+- Compatibility and cost of one input/document per root, including menu,
   accessibility, equation numbering and large question pages.
 - Reliance on MathJax startup constructors/document factory and its `data-MJX`
   discovery behaviour across supported MathJax 4 configurations.

@@ -138,7 +138,7 @@ export const register = (node, config, admin) => {
 };
 
 /**
- * Render a scope using its own input jax, output jax and MathDocument.
+ * Render a scope using its own input jax and MathDocument.
  *
  * Callers must serialize this with ordinary MathJax typesetting.
  *
@@ -166,7 +166,9 @@ export const render = async scope => {
         scope.document = startup.mathjax.document(document, {
             ...mathjax.config.options,
             InputJax: new tex.constructor(options),
-            OutputJax: new startup.output.constructor({...startup.output.options}),
+            // Output options are site-wide. Reuse the output jax so CHTML adaptive styles
+            // and SVG glyph IDs accumulate rather than replacing other documents' assets.
+            OutputJax: startup.output,
         });
     }
     // AJAX can replace children without replacing the registered root.
