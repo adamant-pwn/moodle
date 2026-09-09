@@ -1,0 +1,11 @@
+issueNumber: MDL-89559
+notes:
+  filter_mathjaxloader:
+    - message: >-
+        Draft: trusted plugins can use loader.typesetWithConfig(element, config)
+        to render a plugin-owned container with an independent MathJax 4 TeX
+        configuration. Configuration accepts additive built-in package names and
+        TeX options, preserves explicit administrator values, and persists for
+        filter updates within the registered element. See the component README
+        for the trust contract and prototype limitations.
+      type: improved
