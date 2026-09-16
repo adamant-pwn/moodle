@@ -12,12 +12,6 @@ The format of this change log follows the advice given at [Keep a CHANGELOG](htt
 
 #### Added
 
-- Text editors can override `texteditor::provides_file_manager()` when they provide their own visible
-  embedded-file manager. Editors which do not override it receive the generic manager supplied by the editor
-  form element when file management is enabled.
-
-  For more information see [MDL-89662](https://tracker.moodle.org/browse/MDL-89662)
-
 - `email_to_user()` now emits a hook `before_email_to_user`. This hook allows any subscriber to modify the email contents, add additional headers, or add reasons to block the email. If any block reasons are added, the email is stopped from being sent and the reasons are output.
 
   For more information see [MDL-69724](https://tracker.moodle.org/browse/MDL-69724)

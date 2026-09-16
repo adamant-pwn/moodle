@@ -467,8 +467,10 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element implements templatab
                     'sesskey'=>sesskey(),
                     ));
 
-                if ($this->_options['enable_filemanagement'] && $editor->supports_repositories()
-                        && !$editor->provides_file_manager()) {
+                if (
+                    $this->_options['enable_filemanagement'] && $editor->supports_repositories()
+                    && !$editor->provides_file_manager()
+                ) {
                     $managerurl = new moodle_url('/lib/form/manage_editor_files.php', [
                         'itemid' => $draftitemid,
                         'context' => $ctx->id,
