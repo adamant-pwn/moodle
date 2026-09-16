@@ -1,0 +1,12 @@
+issueNumber: MDL-89548
+notes:
+  core:
+    - message: >-
+        The core/modal AMD module accepts executeExternalScripts (false by
+        default). When enabled for trusted modal content, external scripts in
+        the body are loaded before content filtering and the bodyRendered event.
+        Inline script elements remain inert. Callers must only enable this for
+        trusted content; the option does not sanitize script sources or HTML.
+        Question-bank Usage and Comments previews enable this option to match
+        the ordinary question preview.
+      type: improved
