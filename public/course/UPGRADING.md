@@ -1,6 +1,6 @@
 # core_course (subsystem) Upgrade notes
 
-## 5.3dev
+## 5.3beta
 
 ### Added
 
@@ -22,6 +22,12 @@
 - New get_section() function has been added to get the main section (not delegated) of a course module in the course_navigation class.
 
   For more information see [MDL-88604](https://tracker.moodle.org/browse/MDL-88604)
+
+### Changed
+
+- Web services returning course modules now use standard_coursemodule_elements consistently, aligning core_course and module web services (forum, h5p, assign).
+
+  For more information see [MDL-87241](https://tracker.moodle.org/browse/MDL-87241)
 
 ### Deprecated
 

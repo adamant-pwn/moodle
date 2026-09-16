@@ -135,6 +135,15 @@ function theme_boost_user_preferences(): array {
             'default' => true,
             'permissioncallback' => [core_user::class, 'is_current_user'],
         ],
+        \theme_boost\colour_mode::PREFERENCE => [
+            'type' => PARAM_ALPHA,
+            'null' => NULL_NOT_ALLOWED,
+            'choices' => \theme_boost\colour_mode::get_modes(),
+            // core_user::clean_preference() coerces a write of anything which is not one of the choices to this, so it
+            // matches the default the site setting carries: a bad write does not put somebody into the dark mode.
+            'default' => \theme_boost\colour_mode::LIGHT,
+            'permissioncallback' => [core_user::class, 'is_current_user'],
+        ],
     ];
 }
 

@@ -91,24 +91,30 @@ class client_manager {
      *
      * @param string $name The human-readable name of the client.
      * @param \core\context $ownercontext The context which owns the client.
+     * @param array $granttypes The grant types supported by the client.
      * @param array $redirecturis The redirect URIs to register, as strings. Duplicates are ignored.
      * @param string|null $description An optional human-readable description.
      * @param bool $isconfidential Whether the client can keep a secret confidential.
+     * @param bool $ispkcerequired Whether PKCE is required for this client.
      * @return client_entity The client that was created.
      * @throws moodle_exception If any of the redirect URIs is not usable.
      */
     public function create_client(
         string $name,
         \core\context $ownercontext,
+        array $granttypes,
         array $redirecturis = [],
         ?string $description = null,
         bool $isconfidential = true,
+        bool $ispkcerequired = true,
     ): client_entity {
         $redirecturis = array_values(array_unique($redirecturis));
 
         foreach ($redirecturis as $uri) {
             $this->validate_redirect_uri_format($uri);
         }
+
+        $granttypes = $this->validate_grant_types($granttypes, $isconfidential, $ownercontext);
 
         $now = $this->clock->time();
         $record = (object) [
@@ -118,6 +124,8 @@ class client_manager {
             'ownercontext' => $ownercontext->id,
             'status' => client_entity::STATUS_ACTIVE,
             'isconfidential' => (int) $isconfidential,
+            'granttypes' => implode(',', $granttypes),
+            'ispkcerequired' => (int) $ispkcerequired,
             'timecreated' => $now,
             'timemodified' => $now,
         ];
@@ -189,39 +197,40 @@ class client_manager {
         foreach ($filteredupdates as $field => $value) {
             $client->{$field} = $value;
         }
+
+        if ($client->isconfidential && array_key_exists('ispkcerequired', $updates)) {
+            $client->ispkcerequired = (int) $updates['ispkcerequired'];
+        }
+
         $client->timemodified = $this->clock->time();
 
         $this->db->update_record('oauth2_server_clients', $client);
     }
 
     /**
-     * Revoke a client, cutting off all of its existing access immediately.
+     * Disable a client, cutting off all of its existing access immediately.
      *
-     * Revoking marks the client as revoked and cascades to every credential it holds: its secrets,
-     * its access tokens, its refresh tokens and its outstanding authorisation codes. Access is
-     * therefore withdrawn straight away rather than merely being blocked for future requests.
+     * Disabling marks the client as disabled and cascades to its access tokens, its refresh tokens and its outstanding
+     * authorisation codes. Access is therefore withdrawn straight away rather than merely being blocked for future
+     * requests.
+     *
+     * Client secrets are not explicitly revoked as part of this action, but will remain invalid for use
+     * as long as the client is disabled. The reason why explicit secret revocation is skipped is to allow existing
+     * secrets to still be used in the case of re-enabling the client.
      *
      * @param int $clientid The client ID.
      * @return void
      * @throws \dml_missing_record_exception If the client does not exist.
      */
-    public function revoke_client(int $clientid): void {
+    public function disable_client(int $clientid): void {
         $client = $this->get_client_record($clientid);
         $params = ['clientidentifier' => $client->clientidentifier];
 
         $transaction = $this->db->start_delegated_transaction();
 
-        $client->status = client_entity::STATUS_REVOKED;
+        $client->status = client_entity::STATUS_DISABLED;
         $client->timemodified = $this->clock->time();
         $this->db->update_record('oauth2_server_clients', $client);
-
-        $this->db->set_field_select(
-            'oauth2_server_client_secrets',
-            'revoked',
-            client_entity::SECRET_REVOKED_YES,
-            'clientidentifier = :clientidentifier',
-            $params,
-        );
 
         $this->db->set_field_select(
             'oauth2_server_client_refresh_tokens',
@@ -251,11 +260,10 @@ class client_manager {
     }
 
     /**
-     * Reactivate a revoked client.
+     * Reactivate a disabled client.
      *
-     * Only the client record itself is restored. Secrets and tokens revoked when the client was
-     * revoked stay revoked, so the client must be issued a new secret and must be authorised again
-     * before it can obtain new tokens.
+     * Only the client record itself is restored. Tokens that were revoked when the client was disabled remain revoked,
+     * so the client must be authorized again before it can obtain new tokens.
      *
      * @param int $clientid The client ID.
      * @return void
@@ -273,19 +281,19 @@ class client_manager {
     /**
      * Permanently delete a client and everything belonging to it.
      *
-     * The client must already be revoked. Requiring revocation first guards against destroying a
+     * The client must already be disabled. Requiring disabling first guards against destroying a
      * live integration in a single step.
      *
      * @param int $clientid The client ID.
      * @return void
      * @throws \dml_missing_record_exception If the client does not exist.
-     * @throws moodle_exception If the client has not been revoked yet.
+     * @throws moodle_exception If the client has not been disabled yet.
      */
     public function delete_client(int $clientid): void {
         $client = $this->get_client_record($clientid);
 
-        if ((int) $client->status !== client_entity::STATUS_REVOKED) {
-            throw new moodle_exception('oauth2clientnotrevoked', 'error', '', $client->clientidentifier);
+        if ((int) $client->status !== client_entity::STATUS_DISABLED) {
+            throw new moodle_exception('oauth2clientnotdisabled', 'error', '', $client->clientidentifier);
         }
 
         $params = ['clientidentifier' => $client->clientidentifier];
@@ -318,15 +326,11 @@ class client_manager {
      * @param int|null $expirytime When the secret expires. Defaults to self::SECRET_LIFETIME from now.
      * @return string The plain text secret.
      * @throws \dml_missing_record_exception If the client does not exist.
-     * @throws moodle_exception If the client is public or revoked, or already holds the maximum
-     *      number of active secrets.
+     * @throws moodle_exception If the client is public or already holds the maximum
+     *                          number of active secrets.
      */
     public function create_secret(int $clientid, ?int $expirytime = null): string {
         $client = $this->get_client_record($clientid);
-
-        if ((int) $client->status !== client_entity::STATUS_ACTIVE) {
-            throw new moodle_exception('oauth2clientrevoked', 'error', '', $client->clientidentifier);
-        }
 
         // A public client cannot keep a secret confidential, so it is never issued one.
         if (!(int) $client->isconfidential) {
@@ -537,7 +541,7 @@ class client_manager {
      * @return void
      * @throws moodle_exception If the URI is not usable as a redirect URI.
      */
-    protected function validate_redirect_uri_format(string $uri): void {
+    public function validate_redirect_uri_format(string $uri): void {
         $parts = parse_url($uri);
 
         // A redirect URI must be absolute and must not carry a fragment. See RFC 6749, section 3.1.2.
@@ -546,15 +550,69 @@ class client_manager {
             && !empty($parts['host'])
             && !isset($parts['fragment']);
 
-        // HTTPS is required, except on the loopback interface, which native apps rely on during
-        // development and cannot serve over HTTPS. See RFC 8252, section 7.3.
-        $scheme = $isabsolute ? strtolower($parts['scheme']) : '';
-        $isallowedscheme = $scheme === 'https'
-            || ($scheme === 'http' && $this->is_loopback_host($parts['host']));
-
-        if (!$isabsolute || !$isallowedscheme) {
+        if (!$isabsolute) {
             throw new moodle_exception('oauth2clientinvalidredirecturi', 'error', '', $uri);
         }
+
+        $scheme = strtolower($parts['scheme']);
+        $host = strtolower($parts['host']);
+
+        // HTTPS is required, except on the loopback interface, which native apps rely on during
+        // development and cannot serve over HTTPS. See RFC 8252, section 7.3.
+        $islocal = $this->is_loopback_host($host);
+
+        if ($scheme !== 'https' && !($scheme === 'http' && $islocal)) {
+            throw new moodle_exception('oauth2clientinvalidredirecturi', 'error', '', $uri);
+        }
+    }
+
+    /**
+     * Validate that the requested grant types are allowed based on the client settings.
+     *
+     * @param array $granttypes The list of requested grant types.
+     * @param bool $isconfidential Whether the client is confidential or public.
+     * @param \core\context $ownercontext The context owning this client.
+     * @return array The sanitized and normalized list of grant types.
+     * @throws \coding_exception If any validation rule is violated.
+     */
+    private function validate_grant_types(array $granttypes, bool $isconfidential, \core\context $ownercontext): array {
+        // Clean up the array (remove duplicates and empty values).
+        $granttypes = array_values(array_unique(array_filter($granttypes)));
+
+        // Define all valid grant types allowed.
+        $validgrants = [
+            client_entity::GRANT_TYPE_AUTHORIZATION_CODE,
+            client_entity::GRANT_TYPE_CLIENT_CREDENTIALS,
+            client_entity::GRANT_TYPE_REFRESH_TOKEN,
+        ];
+
+        foreach ($granttypes as $grant) {
+            if (!in_array($grant, $validgrants, true)) {
+                throw new \coding_exception("Unsupported grant type specified: {$grant}");
+            }
+        }
+
+        // Public clients cannot use Client Credential flows.
+        if (!$isconfidential && in_array(client_entity::GRANT_TYPE_CLIENT_CREDENTIALS, $granttypes, true)) {
+            throw new \coding_exception('Public clients cannot support the client_credentials grant type.');
+        }
+
+        // Client Credentials grant is restricted strictly to the system context.
+        if (in_array(client_entity::GRANT_TYPE_CLIENT_CREDENTIALS, $granttypes, true)) {
+            if ($ownercontext->contextlevel !== CONTEXT_SYSTEM) {
+                throw new \coding_exception('The client_credentials grant type is only allowed for system-owned clients.');
+            }
+        }
+
+        $isauthorizationcodesupported = in_array(client_entity::GRANT_TYPE_AUTHORIZATION_CODE, $granttypes, true);
+        $isrefreshtokensupported = in_array(client_entity::GRANT_TYPE_REFRESH_TOKEN, $granttypes, true);
+
+        // Authorization code and Refresh tokens grants must be supported together.
+        if ($isauthorizationcodesupported !== $isrefreshtokensupported) {
+            throw new \coding_exception('The authorization_code and refresh_token grants must be supported together.');
+        }
+
+        return $granttypes;
     }
 
     /**
