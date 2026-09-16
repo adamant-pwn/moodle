@@ -49,3 +49,8 @@ with the new checkbox unchecked and checked, and compare the attachment represen
 the readable result into a test category and verify both files retain their original contents.
 The exported CSS must keep its leading newline and indentation. Also check that selecting another
 export format hides the XML-only checkbox.
+
+The Behat scenarios in `tests/behat/readable_files.feature` cover the Moodle UI:
+raw UTF-8 attachment import, base64 export by default, readable export when selected,
+and hiding the option for a different format. Exact byte preservation and mixed
+encoding round trips are covered by the PHPUnit suite.

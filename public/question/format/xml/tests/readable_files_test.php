@@ -87,7 +87,9 @@ final class readable_files_test extends \advanced_testcase {
         }
     }
 
-    /** A normal question import accepts mixed encodings in separate file areas. */
+    /**
+     * A normal question import accepts mixed encodings in separate file areas.
+     */
     public function test_question_import(): void {
         global $CFG, $USER;
         require_once($CFG->dirroot . '/question/format/xml/format.php');
@@ -109,7 +111,9 @@ final class readable_files_test extends \advanced_testcase {
         $this->assertSame("\0\xff", $file->get_content());
     }
 
-    /** Legacy attachments without an encoding attribute remain base64. */
+    /**
+     * Legacy attachments without an encoding attribute remain base64.
+     */
     public function test_missing_encoding(): void {
         global $CFG, $USER;
         require_once($CFG->dirroot . '/question/format/xml/format.php');
@@ -121,7 +125,9 @@ final class readable_files_test extends \advanced_testcase {
         $this->assertSame('Moodle', $file->get_content());
     }
 
-    /** Unknown encodings must not silently corrupt an attachment. */
+    /**
+     * Unknown encodings must not silently corrupt an attachment.
+     */
     public function test_unknown_encoding(): void {
         global $CFG;
         require_once($CFG->dirroot . '/question/format/xml/format.php');
@@ -134,7 +140,9 @@ final class readable_files_test extends \advanced_testcase {
         ]);
     }
 
-    /** The standard export form exposes the opt-in and leaves it unchecked. */
+    /**
+     * The standard export form exposes the opt-in and leaves it unchecked.
+     */
     public function test_export_form_option(): void {
         global $PAGE;
         $this->resetAfterTest();
@@ -156,5 +164,4 @@ final class readable_files_test extends \advanced_testcase {
         $this->assertCount(1, $checkboxes);
         $this->assertFalse($checkboxes->item(0)->hasAttribute('checked'));
     }
-
 }

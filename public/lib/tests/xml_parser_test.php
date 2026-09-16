@@ -62,7 +62,9 @@ final class xml_parser_test extends \basic_testcase {
         $this->assertEquals(unserialize($serialised), (new xml_parser())->parse($xml));
     }
 
-    /** xml:space applies to descendants, resets with default, and does not affect siblings. */
+    /**
+     * xml:space applies to descendants, resets with default, and does not affect siblings.
+     */
     public function test_xml_space(): void {
         $xml = '<root><keep xml:space="preserve"><child>  </child>' .
             '<reset xml:space="default">  </reset></keep><other>  </other></root>';
