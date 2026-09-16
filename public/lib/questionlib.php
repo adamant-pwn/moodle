@@ -1707,6 +1707,9 @@ function question_pluginfile($course, $context, $component, $filearea, $args, $f
         }
 
         $qformat = new $classname();
+        if ($format === 'xml') {
+            $qformat->set_readable_files(optional_param('readablefiles', false, PARAM_BOOL));
+        }
 
         if (!$category = $DB->get_record('question_categories', array('id' => $categoryid))) {
             send_file_not_found();

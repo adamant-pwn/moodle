@@ -41,6 +41,8 @@ class xml_parser {
     private array $current;
     /** @var int tores the level in the XML tree */
     private int $level;
+    /** @var bool[] Whether xml:space preserves whitespace at each nesting level. */
+    private array $preservespace = [];
 
     /**
      * Is called when tags are opened.
@@ -59,6 +61,11 @@ class xml_parser {
         $current = &$this->current;
         $level = &$this->level;
         if (!empty($name)) {
+            $preservespace = match ($attrs['xml:space'] ?? '') {
+                'preserve' => true,
+                'default' => false,
+                default => $this->preservespace[$level] ?? false,
+            };
             if ($level == 0) {
                 $current[$level][$name] = [];
                 $current[$level][$name]["@"] = $attrs; // Attribute.
@@ -77,6 +84,7 @@ class xml_parser {
                 $current[$level + 1] = & $current[$level][$name][$siz]["#"];
                 $level++;
             }
+            $this->preservespace[$level] = $preservespace;
         }
     }
 
@@ -103,6 +111,7 @@ class xml_parser {
                 }
             }
 
+            unset($this->preservespace[$level]);
             $level--;
         }
     }
@@ -120,7 +129,7 @@ class xml_parser {
     ): void {
         $current = &$this->current;
         $level = &$this->level;
-        if (($data == "0") || (!empty($data) && trim($data) != "")) {
+        if (($this->preservespace[$level] ?? false) || ($data == "0") || (!empty($data) && trim($data) != "")) {
             $siz = count($current[$level]);
             if ($siz == 0) {
                 $current[$level][0] = $data;
@@ -163,6 +172,7 @@ class xml_parser {
         $this->xml = [];
         $this->current = [];
         $this->level = 0;
+        $this->preservespace = [];
         $this->current[0] = & $this->xml;
         $parser = xml_parser_create($encoding);
         xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, 0);

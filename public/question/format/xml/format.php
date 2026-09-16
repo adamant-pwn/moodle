@@ -52,6 +52,18 @@ class qformat_xml extends qformat_default {
     /** @var array Array of files for feedback to question answers. */
     protected $feedbackfiles = [];
 
+    /** @var bool Export XML-safe text attachments as UTF-8 instead of base64. */
+    protected bool $readablefiles = false;
+
+    /**
+     * Enable readable text attachments. Older Moodle XML importers require base64.
+     *
+     * @param bool $readablefiles Whether to export suitable text files as UTF-8.
+     */
+    public function set_readable_files(bool $readablefiles): void {
+        $this->readablefiles = $readablefiles;
+    }
+
     public function provide_import() {
         return true;
     }
@@ -206,7 +218,13 @@ class qformat_xml extends qformat_default {
                 'filepath'  => $filepath,
                 'filename'  => $filename,
             );
-            $fs->create_file_from_string($filerecord, base64_decode($file['#']));
+            $encoding = $this->getpath($file, ['@', 'encoding'], 'base64');
+            $content = match ($encoding) {
+                'base64' => base64_decode($file['#']),
+                'utf-8' => $file['#'],
+                default => throw new moodle_exception('unsupportedfileencoding', 'qformat_xml', '', $encoding),
+            };
+            $fs->create_file_from_string($filerecord, $content);
             $filepaths[] = $fullpath;
         }
         return $itemid;
@@ -1193,8 +1211,25 @@ class qformat_xml extends qformat_default {
             if ($file->is_directory()) {
                 continue;
             }
-            $string .= '<file name="' . $file->get_filename() . '" path="' . $file->get_filepath() . '" encoding="base64">';
-            $string .= base64_encode($file->get_content());
+            $content = $file->get_content();
+            $mimetype = $file->get_mimetype();
+            $istext = str_starts_with($mimetype, 'text/') || in_array($mimetype, [
+                'application/javascript', 'application/x-javascript', 'application/json',
+                'application/xml', 'image/svg+xml',
+            ]);
+            // XML normalises CR/CRLF and cannot represent every byte or Unicode character.
+            // Retain base64 unless the content can round-trip without changing its bytes.
+            $readable = $this->readablefiles && $istext && preg_match(
+                '/\A[\x{9}\x{A}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]*\z/u',
+                $content,
+            );
+            $string .= '<file name="' . $file->get_filename() . '" path="' . $file->get_filepath() . '"';
+            if ($readable) {
+                $string .= ' encoding="utf-8" xml:space="preserve"><![CDATA[';
+                $string .= str_replace(']]>', ']]]]><![CDATA[>', $content) . ']]>';
+            } else {
+                $string .= ' encoding="base64">' . base64_encode($content);
+            }
             $string .= "</file>\n";
         }
         return $string;

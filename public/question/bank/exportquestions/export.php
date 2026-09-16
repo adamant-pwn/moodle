@@ -81,6 +81,10 @@ if ($fromform = $exportform->get_data()) {
     $exporturl = exportquestions_helper::question_make_export_url($thiscontext->id, $category->id,
             $fromform->format, $withcategories, $withcontexts, $filename);
 
+    if ($fromform->format === 'xml' && !empty($fromform->readablefiles)) {
+        $exporturl->param('readablefiles', 1);
+    }
+
     echo $OUTPUT->box_start();
     echo get_string('yourfileshoulddownload', 'question', $exporturl->out());
     echo $OUTPUT->box_end();
