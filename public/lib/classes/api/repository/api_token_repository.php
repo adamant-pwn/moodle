@@ -17,6 +17,9 @@
 namespace core\api\repository;
 
 use core\api\entity\api_token_entity;
+use core\api\token_manager;
+use core\clock;
+use core\di;
 
 /**
  * Repository for REST API tokens.
@@ -32,16 +35,17 @@ class api_token_repository {
      * @param string $name The human-readable name.
      * @param string $secret The raw secret.
      * @param int $userid The user ID.
-     * @param string $scopes The scopes.
+     * @param string[] $scopes The scopes.
      * @param string|null $description The description.
      * @param int|null $expirytime The expiry timestamp.
      * @return api_token_entity
      */
     public function create_token(
         string $name,
+        #[\SensitiveParameter]
         string $secret,
         int $userid,
-        string $scopes,
+        array $scopes,
         ?string $description = null,
         ?int $expirytime = null
     ): api_token_entity {
@@ -51,11 +55,11 @@ class api_token_repository {
         $record->name = $name;
         $record->token = password_hash($secret, PASSWORD_DEFAULT);
         $record->userid = $userid;
-        $record->scopes = $scopes;
+        $record->scopes = implode(' ', $scopes);
         $record->description = $description;
         $record->expirytime = $expirytime;
         $record->revoked = api_token_entity::REVOKED_NO;
-        $record->timecreated = time();
+        $record->timecreated = di::get(clock::class)->time();
 
         $record->id = $DB->insert_record('rest_api_tokens', $record);
 
@@ -75,6 +79,44 @@ class api_token_repository {
         $record = $DB->get_record('rest_api_tokens', ['id' => $id], '*', MUST_EXIST);
 
         return api_token_entity::create_from_record($record);
+    }
+
+    /**
+     * Get a token entity from a provided token.
+     *
+     * @param string $token
+     * @return api_token_entity
+     * @throws \core\exception\invalid_api_token_exception If the token is invalid.
+     * @throws \core\exception\expired_api_token_exception If the token has expired.
+     * @throws \core\exception\revoked_api_token_exception If the token has been revoked.
+     */
+    public function get_from_token(
+        #[\SensitiveParameter]
+        string $token,
+    ): api_token_entity {
+        if (!str_starts_with($token, token_manager::TOKEN_PREFIX)) {
+            throw new \core\exception\invalid_api_token_exception();
+        }
+
+        // Tokens are a base64 encoded string of "tokenid/secret" prefixed with the token manager's prefix.
+        // The secret is hashed in the database using `password_hash` so is not reversible.
+        // The base64 encoding makes it URL safe and allows us to include the token ID and secret for verification.
+        $tokendata = base64_decode(substr($token, strlen(token_manager::TOKEN_PREFIX)));
+
+        if (!str_contains($tokendata, '/')) {
+            // After base64 decoding, the token should contain a '/' separating the token ID and secret.
+            throw new \core\exception\invalid_api_token_exception();
+        }
+
+        [$tokenid, $secret] = explode('/', $tokendata, 2);
+        if (!is_numeric($tokenid)) {
+            // The TokenID should be an integer.
+            throw new \core\exception\invalid_api_token_exception();
+        }
+        $tokenid = (int) $tokenid;
+
+        // Validate the token and secret, throwing exceptions if invalid, expired, or revoked.
+        return $this->validate_token($tokenid, $secret);
     }
 
     /**
@@ -163,7 +205,7 @@ class api_token_repository {
     }
 
     /**
-     * Update the last accessed timestamp for a token to the current time.
+     * Record that a token was just used, and where from.
      *
      * @param int $tokenid The token ID.
      * @return void
@@ -171,7 +213,13 @@ class api_token_repository {
     public function log_token_access(int $tokenid): void {
         global $DB;
 
-        $DB->set_field('rest_api_tokens', 'lastaccessed', time(), ['id' => $tokenid]);
+        // The address is stored alongside the time because "last used yesterday" on its own does
+        // not tell the owner whether it was them.
+        $DB->update_record('rest_api_tokens', (object) [
+            'id' => $tokenid,
+            'lastaccessed' => di::get(clock::class)->time(),
+            'lastaccessip' => getremoteaddr(null),
+        ]);
     }
 
     /**
@@ -191,7 +239,7 @@ class api_token_repository {
             $select .= " AND revoked = :revoked AND (expirytime IS NULL OR expirytime > :now)";
             $params += [
                 'revoked' => api_token_entity::REVOKED_NO,
-                'now' => time(),
+                'now' => di::get(clock::class)->time(),
             ];
         }
 

@@ -82,6 +82,14 @@ class restore_drop_and_clean_temp_stuff extends restore_execution_step {
 class restore_gradebook_structure_step extends restore_structure_step {
 
     /**
+     * The first Moodle version on this branch containing the MDL-88407 fix.
+     *
+     * As the fix did not include a version bump on any branch, this is the exact weekly version the
+     * fix first shipped in.
+     */
+    const PENALTY_CALCULATION_BUG_VERSION = 2026070800.00;
+
+    /**
      * To conditionally decide if this step must be executed
      * Note the "settings" conditions are evaluated in the
      * corresponding task. Here we check for other conditions
@@ -525,6 +533,18 @@ class restore_gradebook_structure_step extends restore_structure_step {
                 && ($restoretask->backup_version_compare(20160518, '<') || $restoretask->backup_release_compare('2.9', '<='))) {
             require_once($CFG->libdir . '/db/upgradelib.php');
             upgrade_course_letter_boundary($this->get_courseid());
+        }
+        // Penalised grades may have had a grade item's multiplier/offset applied twice between the
+        // introduction of grade penalties (20250318) and the MDL-88407 fix. As the fix did not include
+        // a version bump, compare the backup's exact moodle_version against the weekly version in which
+        // the fix first shipped on this branch.
+        if (
+            !$gradebookcalculationsfreeze
+            && $restoretask->backup_version_compare(20250318, '>=')
+            && $restoretask->get_info()->moodle_version < self::PENALTY_CALCULATION_BUG_VERSION
+        ) {
+            require_once($CFG->libdir . '/db/upgradelib.php');
+            upgrade_penalty_calculation_freeze($this->get_courseid());
         }
 
     }
@@ -1514,8 +1534,8 @@ class restore_outcomes_structure_step extends restore_structure_step {
             // Remap the user
             $userid = $this->get_mappingid('user', $data->usermodified);
             $data->usermodified = $userid ? $userid : $this->task->get_userid();
-            // Remap the scale
-            $data->scaleid = $this->get_mappingid('scale', $data->scaleid);
+            // Remap the scale ID for scaled outcomes; preserve null for scaleless outcomes.
+            $data->scaleid = !empty($data->scaleid) ? $this->get_mappingid('scale', $data->scaleid) : null;
             // Remap the course if course outcome
             $data->courseid = $data->courseid ? $this->get_courseid() : null;
             // If global outcome (course=null), check the user has perms to create it
@@ -4165,6 +4185,7 @@ class restore_activity_grades_structure_step extends restore_structure_step {
             $paths[] = new restore_path_element('grade_grade',
                            '/activity_gradebook/grade_items/grade_item/grade_grades/grade_grade');
         }
+        $paths[] = new restore_path_element('outcome_module', '/activity_gradebook/outcomes_modules/outcome_module');
         return $paths;
     }
 
@@ -4262,6 +4283,27 @@ class restore_activity_grades_structure_step extends restore_structure_step {
         } else {
             debugging("Mapped user id not found for user id '{$olduserid}', grade item id '{$data->itemid}'");
         }
+    }
+
+    /**
+     * Restores the outcome association for this activity.
+     *
+     * @param array $data
+     */
+    protected function process_outcome_module(array $data): void {
+        $data = (object)$data;
+
+        $outcomeid = $this->get_mappingid('outcome', $data->outcomeid);
+        if (!$outcomeid) {
+            return;
+        }
+
+        $outcome = grade_outcome::fetch(['id' => $outcomeid]);
+        if (!$outcome) {
+            return;
+        }
+
+        $outcome->add_outcome_to_module($this->get_courseid(), $this->task->get_moduleid());
     }
 
     /**
