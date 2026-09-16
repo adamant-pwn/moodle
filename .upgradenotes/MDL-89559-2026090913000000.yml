@@ -2,10 +2,13 @@ issueNumber: MDL-89559
 notes:
   filter_mathjaxloader:
     - message: >-
-        Draft: trusted plugins can use loader.typesetWithConfig(element, config)
-        to render a plugin-owned container with an independent MathJax 4 TeX
-        configuration. Configuration accepts additive built-in package names and
-        TeX options, preserves explicit administrator values, and persists for
-        filter updates within the registered element. See the component README
-        for the trust contract and prototype limitations.
+        The loader AMD module provides typesetWithConfig(container, config) for
+        trusted installed plugins to register scoped TeX configuration on a DOM
+        root before its first typesetting. This requires MathJax 4 and accepts
+        built-in package names and JSON TeX options, subject to administrator
+        configuration. Plugins must retain the renderer-created element reference
+        and must not derive authorization or configuration from user markup.
+        Options such as texhtml do not sanitize HTML: callers remain responsible
+        for trusted or appropriately cleaned content. See the component README
+        for registration ordering, isolation limits and failure handling.
       type: improved

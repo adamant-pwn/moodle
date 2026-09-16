@@ -73,7 +73,10 @@ This is a design prototype, not a completed STACK integration or a security audi
 It requires MathJax 4 for scoped rendering; existing ordinary rendering is retained.
 The PHP filter, Moodle HTML cleaning pipeline and STACK question renderer are not
 changed. Real STACK usage must arrange registration order and authoring/cleaning of
-`tex-html` markup and attach input behaviour after MathJax reconstructs the HTML.
+`tex-html` markup and attach input behaviour after MathJax reconstructs the HTML. Input keyboard
+events must not bubble into MathJax's explorer; otherwise its navigation handlers
+can consume typing. The Behat fixture demonstrates binding these handlers to the
+rendered input without changing the site-wide accessibility configuration.
 
 Before integration, maintainers should review:
 

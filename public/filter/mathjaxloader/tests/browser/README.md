@@ -30,3 +30,13 @@ Coverage: initial/late registration; administrator macro preservation and confli
 forged markers; insertion, ancestor updates and replacement through AJAX; overlapping
 and duplicate scopes; invalid configuration/prototype keys; independent macro values;
 administrator package removals; failed package loading; and lazy package loading.
+
+## Moodle integration smoke test
+
+`tests/behat/scoped.feature` runs a Behat-only trusted-renderer fixture through
+Moodle's real PHP page and AMD loader. It checks that a texhtml input renders,
+accepts typing, and does not enable allowTexHTML on the shared TeX input.
+Run the scenario with Moodle's standard Behat environment. The fixture loads the
+same MathJax 4.0.0 CDN used by the default filter setting and requires network access.
+This complements the standalone isolation suite; it does not yet cover STACK's
+HTML-cleaning pipeline, question input binding, or scoped AJAX updates in Moodle.
