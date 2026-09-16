@@ -92,3 +92,42 @@ Before integration, maintainers should review:
 
 See [browser test instructions](tests/browser/README.md) and
 [MDL-89559](https://moodle.atlassian.net/browse/MDL-89559).
+
+## Plugin author example: binding a rendered input
+
+This is a draft API; neither the patch nor this example establishes a supported STACK
+integration. After the Moodle filter has been configured, a trusted plugin can register
+its own connected renderer-created element before the element is first typeset:
+
+```js
+import {typesetWithConfig} from 'filter_mathjaxloader/loader';
+
+await typesetWithConfig(container, {
+    packages: ['texhtml'],
+    tex: {allowTexHTML: true},
+});
+const input = container.querySelector('mjx-container input');
+if (input) {
+    ['focusin', 'focusout', 'mousedown', 'click', 'keydown', 'keypress', 'keyup'].forEach(type => {
+        input.addEventListener(type, event => event.stopPropagation());
+    });
+}
+```
+
+The container's source must be trusted or appropriately cleaned before this call. The
+example illustrates retaining input focus and typing without activating the expression
+explorer; it is not a complete accessibility solution. The plugin still needs labels,
+keyboard navigation, input-value synchronization and listeners for its own form/grading
+lifecycle. Rebind after any rendering operation that reconstructs the input. Do not turn
+off accessibility globally to make one input work.
+
+Handle rejected promises explicitly. An administrator conflict should be resolved by
+using permitted configuration, not by overriding the administrator setting. A disconnected,
+already-rendered or overlapping root requires correcting registration order/ownership.
+A package-load failure should leave a usable fallback rather than silently claiming the
+interactive content is ready. MathJax versions before 4 do not support this scoped API.
+
+No new administrator setting or database migration is introduced; existing ordinary
+rendering continues to use the site's configuration. After architectural acceptance,
+the contract and examples should be incorporated into the MathJax filter developer docs.
+Keep `dev_docs_required` until that accepted API documentation is published and linked.
