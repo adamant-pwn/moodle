@@ -36,8 +36,8 @@ class client_entity implements ClientEntityInterface {
     /** @var int Active client status */
     public const int STATUS_ACTIVE = 1;
 
-    /** @var int Revoked client status */
-    public const int STATUS_REVOKED = 2;
+    /** @var int Disabled client status */
+    public const int STATUS_DISABLED = 2;
 
     /** @var int Client secret is not revoked */
     public const int SECRET_REVOKED_NO = 0;
@@ -69,7 +69,7 @@ class client_entity implements ClientEntityInterface {
     /** @var \core\context The owner context */
     protected \core\context $ownercontext;
 
-    /** @var int The status of the client (STATUS_ACTIVE|STATUS_REVOKED) */
+    /** @var int The status of the client (STATUS_ACTIVE|STATUS_DISABLED) */
     protected int $status;
 
     /** @var string|null The description of the client */
@@ -78,8 +78,8 @@ class client_entity implements ClientEntityInterface {
     /** @var array The grant types supported by the client */
     protected array $granttypes;
 
-    /** @var bool Whether PKCE is enabled for the client */
-    protected bool $ispkceenabled;
+    /** @var bool Whether PKCE is required for the client */
+    protected bool $ispkcerequired;
 
     /**
      * Get the ID of the client.
@@ -100,7 +100,7 @@ class client_entity implements ClientEntityInterface {
     }
 
     /**
-     * Get the status of the client (STATUS_ACTIVE|STATUS_REVOKED).
+     * Get the status of the client (STATUS_ACTIVE|STATUS_DISABLED).
      *
      * @return int
      */
@@ -118,12 +118,17 @@ class client_entity implements ClientEntityInterface {
     }
 
     /**
-     * Whether PKCE is enabled for the client.
+     * Whether PKCE is required for the client.
      *
      * @return bool
      */
-    public function is_pkce_enabled(): bool {
-        return $this->ispkceenabled;
+    public function is_pkce_required(): bool {
+        if (!$this->isConfidential()) {
+            // Public clients must always use PKCE, so we return true here regardless of the stored value.
+            return true;
+        }
+
+        return $this->ispkcerequired;
     }
 
     /**
@@ -179,7 +184,7 @@ class client_entity implements ClientEntityInterface {
         $client->status = (int) $clientrecord->status;
         $client->isConfidential = (bool) $clientrecord->isconfidential;
         $client->granttypes = !empty($clientrecord->granttypes) ? explode(',', $clientrecord->granttypes) : [];
-        $client->ispkceenabled = (bool) $clientrecord->ispkceenabled;
+        $client->ispkcerequired = (bool) $clientrecord->ispkcerequired;
 
         return $client;
     }

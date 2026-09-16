@@ -182,7 +182,7 @@ final class client_manager_test extends \advanced_testcase {
             ],
             $client->get_grant_types(),
         );
-        $this->assertTrue($client->is_pkce_enabled());
+        $this->assertTrue($client->is_pkce_required());
 
         $record = $DB->get_record(
             'oauth2_server_clients',
@@ -337,6 +337,33 @@ final class client_manager_test extends \advanced_testcase {
     }
 
     /**
+     * Test updating the administrative metadata of a client.
+     *
+     * @return void
+     */
+    public function test_update_client_with_pkce(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $manager = $this->get_manager();
+        $record = $this->create_fixture_client($manager);
+        $this->assertSame(1, (int) $record->ispkcerequired);
+
+        $manager->update_client((int) $record->id, [
+            'name' => 'Renamed client',
+            'description' => 'A new description',
+            'ispkcerequired' => 0,
+        ]);
+
+        $updated = $DB->get_record('oauth2_server_clients', ['id' => $record->id], '*', MUST_EXIST);
+        $this->assertSame('Renamed client', $updated->name);
+        $this->assertSame('A new description', $updated->description);
+        $this->assertSame(self::NOW, (int) $updated->timemodified);
+        $this->assertSame(0, (int) $updated->ispkcerequired);
+    }
+
+    /**
      * Test that update_client refuses to change anything but the name and the description.
      *
      * @return void
@@ -352,7 +379,7 @@ final class client_manager_test extends \advanced_testcase {
         $manager->update_client((int) $record->id, [
             'clientidentifier' => 'hijacked',
             'ownercontext' => 1,
-            'status' => client_entity::STATUS_REVOKED,
+            'status' => client_entity::STATUS_DISABLED,
             'isconfidential' => 0,
         ]);
 
@@ -364,7 +391,7 @@ final class client_manager_test extends \advanced_testcase {
     }
 
     /**
-     * Test that revoking a client cascades to every credential it holds.
+     * Test that revoking a client cascades to every credential it holds apart from secrets.
      *
      * @return void
      */
@@ -383,13 +410,13 @@ final class client_manager_test extends \advanced_testcase {
         $manager->create_secret((int) $other->id);
         $this->issue_credentials($other->clientidentifier);
 
-        $manager->revoke_client((int) $record->id);
+        $manager->disable_client((int) $record->id);
 
         $this->assertSame(
-            client_entity::STATUS_REVOKED,
+            client_entity::STATUS_DISABLED,
             (int) $DB->get_field('oauth2_server_clients', 'status', ['id' => $record->id]),
         );
-        $this->assertSame(1, $DB->count_records('oauth2_server_client_secrets', [
+        $this->assertSame(0, $DB->count_records('oauth2_server_client_secrets', [
             'clientidentifier' => $record->clientidentifier,
             'revoked' => client_entity::SECRET_REVOKED_YES,
         ]));
@@ -439,7 +466,7 @@ final class client_manager_test extends \advanced_testcase {
         $manager->create_secret((int) $record->id);
         $this->issue_credentials($record->clientidentifier);
 
-        $manager->revoke_client((int) $record->id);
+        $manager->disable_client((int) $record->id);
         $manager->reactivate_client((int) $record->id);
 
         $this->assertSame(client_entity::STATUS_ACTIVE, (int) $DB->get_field(
@@ -448,8 +475,10 @@ final class client_manager_test extends \advanced_testcase {
             ['id' => $record->id],
         ));
 
-        // Every credential revoked alongside the client stays revoked.
-        $this->assertEmpty($manager->get_secrets((int) $record->id));
+        // Revoking a client does not revoke its secrets, ensure they remain preserved upon re-activation.
+        $this->assertNotEmpty($manager->get_secrets((int) $record->id));
+
+        // Every other credential revoked alongside the client stays revoked.
         $this->assertSame(0, $DB->count_records('oauth2_server_client_access_tokens', [
             'clientidentifier' => $record->clientidentifier,
             'revoked' => access_token_entity::REVOKED_NO,
@@ -482,7 +511,7 @@ final class client_manager_test extends \advanced_testcase {
             $manager->delete_client((int) $record->id);
             $this->fail('A moodle_exception was expected.');
         } catch (moodle_exception $e) {
-            $this->assertSame('oauth2clientnotrevoked', $e->errorcode);
+            $this->assertSame('oauth2clientnotdisabled', $e->errorcode);
         }
 
         $this->assertTrue($DB->record_exists('oauth2_server_clients', ['id' => $record->id]));
@@ -507,7 +536,7 @@ final class client_manager_test extends \advanced_testcase {
         $manager->create_secret((int) $other->id);
         $this->issue_credentials($other->clientidentifier);
 
-        $manager->revoke_client((int) $record->id);
+        $manager->disable_client((int) $record->id);
         $manager->delete_client((int) $record->id);
 
         $params = ['clientidentifier' => $record->clientidentifier];
@@ -675,25 +704,20 @@ final class client_manager_test extends \advanced_testcase {
     }
 
     /**
-     * Test that a revoked client cannot be issued a new secret.
+     * Test that a revoked client can issue a new secret.
      *
      * @return void
      */
-    public function test_create_secret_rejects_revoked_client(): void {
+    public function test_create_secret_does_not_reject_revoked_client(): void {
         $this->resetAfterTest();
 
         $manager = $this->get_manager();
         $record = $this->create_fixture_client($manager);
-        $manager->revoke_client((int) $record->id);
+        $manager->disable_client((int) $record->id);
 
-        try {
-            $manager->create_secret((int) $record->id);
-            $this->fail('A moodle_exception was expected.');
-        } catch (moodle_exception $e) {
-            $this->assertSame('oauth2clientrevoked', $e->errorcode);
-        }
+        $manager->create_secret((int) $record->id);
 
-        $this->assertEmpty($manager->get_secrets((int) $record->id, true));
+        $this->assertNotEmpty($manager->get_secrets((int) $record->id));
     }
 
     /**
