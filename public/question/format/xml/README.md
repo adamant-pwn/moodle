@@ -1,6 +1,7 @@
 # Readable text attachments
 
-Proposed for [MDL-89828](https://moodle.atlassian.net/browse/MDL-89828).
+Draft documentation for [MDL-89828](https://moodle.atlassian.net/browse/MDL-89828).
+This describes the proposed patch, not a released Moodle feature.
 
 Moodle XML accepts `encoding="utf-8"` for text attachments in addition to the existing
 `encoding="base64"` representation. For example:
@@ -54,3 +55,29 @@ The Behat scenarios in `tests/behat/readable_files.feature` cover the Moodle UI:
 raw UTF-8 attachment import, base64 export by default, readable export when selected,
 and hiding the option for a different format. Exact byte preservation and mixed
 encoding round trips are covered by the PHPUnit suite.
+
+## Teacher workflow (draft user documentation)
+
+Use this option when reviewing or maintaining attached source files in version control.
+In the question bank, open **Export**, choose **Moodle XML format**, select the category,
+and enable **Export text attachments as readable UTF-8** before exporting. Leave the
+option unchecked if the destination Moodle does not include this change. Other export
+formats do not show the option. Existing users get the same base64 export by default.
+
+Import the resulting file through the usual question-bank **Import** page with Moodle XML
+selected. Import needs no additional UTF-8 setting: the encoding is declared on each file.
+One question can contain both readable text files and base64 attachments.
+
+There is no database migration or new site-administration setting. New and upgraded sites
+use the same default. This does not grant permission to execute JavaScript, bypass content
+filtering, or change who may import/export questions.
+
+If import reports an unsupported file encoding, correct the file's encoding declaration
+and content together, or regenerate a standard base64 export. Do not relabel raw text as
+base64 or vice versa. A file remaining base64 in readable mode is expected when its MIME
+type or bytes are unsuitable; see the preservation rules above. For an older destination,
+regenerate the export with readable mode disabled rather than importing unsupported UTF-8.
+
+After acceptance, the user-facing text belongs in the versioned Moodle XML import/export
+documentation, and the format/setter contract in the developer documentation. Keep the
+Tracker documentation labels until those accepted-version pages have been updated.
