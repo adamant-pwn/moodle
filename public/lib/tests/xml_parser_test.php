@@ -76,4 +76,16 @@ final class xml_parser_test extends \basic_testcase {
         $this->assertSame('', $parser->parse('<root>  </root>')['root']['#']);
     }
 
+    /**
+     * CDATA escaping alone does not preserve whitespace-only character data.
+     */
+    public function test_cdata_whitespace_preservation(): void {
+        $content = " \t\n\n  ";
+        $xml = '<root><legacy><![CDATA[' . $content . ']]></legacy>' .
+            '<preserved xml:space="preserve"><![CDATA[' . $content . ']]></preserved></root>';
+        $data = (new xml_parser())->parse($xml, 0, 'UTF-8', true)['root']['#'];
+        $this->assertSame('', $data['legacy'][0]['#']);
+        $this->assertSame($content, $data['preserved'][0]['#']);
+    }
+
 }

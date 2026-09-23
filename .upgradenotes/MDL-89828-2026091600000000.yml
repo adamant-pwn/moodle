@@ -4,8 +4,9 @@ notes:
     - message: >-
         Moodle XML imports now accept file elements with encoding="utf-8" alongside
         base64 attachments. Use xml:space="preserve" to retain whitespace-only
-        content. Export remains base64 by default; programmatic exporters can call
-        set_readable_files(true) to opt into readable UTF-8 for suitable text files.
+        content, including inside CDATA. Export automatically uses readable UTF-8
+        for suitable text files; programmatic exporters can call
+        set_legacy_files(true) to force base64 for compatibility with older importers.
         Binary files and text that XML cannot preserve exactly remain base64.
         Older Moodle importers do not support the new encoding. Unknown explicit
         file encodings now raise an error rather than being decoded as base64.

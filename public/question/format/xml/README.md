@@ -14,13 +14,17 @@ Moodle XML accepts `encoding="utf-8"` for text attachments in addition to the ex
 ```
 
 Use `xml:space="preserve"` to retain whitespace-only content and parser chunks. CDATA or XML
-escaping protects characters such as `<` and `&`; split CDATA sections when the source contains
+escaping protects characters such as `<` and `&`. CDATA alone does not stop Moodle's parser
+from discarding whitespace-only character-data chunks. Split CDATA sections when the source contains
 `]]>`. The imported content remains an ordinary Moodle stored file, referenced through
 `@@PLUGINFILE@@`. File execution and filtering permissions are unchanged.
 
-The question-bank export form offers **Export text attachments as readable UTF-8** for Moodle XML.
-It is disabled by default because older importers unconditionally base64-decode file contents.
-Programmatic exporters can opt in with `$format->set_readable_files(true)`.
+Moodle XML automatically exports suitable text attachments as readable UTF-8.
+The question-bank export form offers **Use legacy-compatible attachment encoding**, unchecked
+by default, to force base64 for every attachment. Enable it when the destination uses an older
+importer, which unconditionally base64-decodes file contents. Programmatic exporters can request
+the same compatibility mode with `$format->set_legacy_files(true)`; setting it to `false` restores
+automatic selection.
 
 Readable export applies only to text MIME types, JavaScript, JSON, XML and SVG whose UTF-8 contents
 can be represented in XML 1.0 without changing their bytes. Files containing carriage returns,
@@ -41,28 +45,28 @@ vendor/bin/phpunit public/lib/tests/xml_parser_test.php
 vendor/bin/phpunit --testsuite qformat_xml_testsuite
 ```
 
-The new `readable_files_test` covers opt-in and default exports, Unicode, CDATA delimiters,
+The new `readable_files_test` covers automatic and legacy-compatible exports, Unicode, CDATA delimiters,
 whitespace-only files, chunk boundaries, empty files, binary/invalid text fallback, nested paths,
 and mixed-encoding question/feedback imports. Existing XML tests cover legacy question formats.
 
 For a manual check, import `tests/fixtures/readable_files.xml`, export its category as Moodle XML
-with the new checkbox unchecked and checked, and compare the attachment representations. Reimport
+with legacy compatibility unchecked and checked, and compare the attachment representations. Reimport
 the readable result into a test category and verify both files retain their original contents.
 The exported CSS must keep its leading newline and indentation. Also check that selecting another
 export format hides the XML-only checkbox.
 
 The Behat scenarios in `tests/behat/readable_files.feature` cover the Moodle UI:
-raw UTF-8 attachment import, base64 export by default, readable export when selected,
+raw UTF-8 attachment import, readable export by default, base64 export when compatibility is selected,
 and hiding the option for a different format. Exact byte preservation and mixed
 encoding round trips are covered by the PHPUnit suite.
 
 ## Teacher workflow (draft user documentation)
 
-Use this option when reviewing or maintaining attached source files in version control.
-In the question bank, open **Export**, choose **Moodle XML format**, select the category,
-and enable **Export text attachments as readable UTF-8** before exporting. Leave the
-option unchecked if the destination Moodle does not include this change. Other export
-formats do not show the option. Existing users get the same base64 export by default.
+In the question bank, open **Export**, choose **Moodle XML format**, and select the category.
+Suitable source attachments are readable by default, making them easier to review in version control.
+For import into a Moodle installation without this feature, enable **Use legacy-compatible
+attachment encoding**. This stores every attachment as base64 and prevents older importers from
+misinterpreting readable text as base64. Other export formats do not show the option.
 
 Import the resulting file through the usual question-bank **Import** page with Moodle XML
 selected. Import needs no additional UTF-8 setting: the encoding is declared on each file.
@@ -76,7 +80,7 @@ If import reports an unsupported file encoding, correct the file's encoding decl
 and content together, or regenerate a standard base64 export. Do not relabel raw text as
 base64 or vice versa. A file remaining base64 in readable mode is expected when its MIME
 type or bytes are unsuitable; see the preservation rules above. For an older destination,
-regenerate the export with readable mode disabled rather than importing unsupported UTF-8.
+regenerate the export with legacy compatibility enabled rather than importing unsupported UTF-8.
 
 After acceptance, the user-facing text belongs in the versioned Moodle XML import/export
 documentation, and the format/setter contract in the developer documentation. Keep the

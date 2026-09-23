@@ -52,16 +52,16 @@ class qformat_xml extends qformat_default {
     /** @var array Array of files for feedback to question answers. */
     protected $feedbackfiles = [];
 
-    /** @var bool Export XML-safe text attachments as UTF-8 instead of base64. */
-    protected bool $readablefiles = false;
+    /** @var bool Use base64 for all attachments for compatibility with older Moodle importers. */
+    protected bool $legacyfiles = false;
 
     /**
-     * Enable readable text attachments. Older Moodle XML importers require base64.
+     * Use base64 for every attachment when exporting for older Moodle importers.
      *
-     * @param bool $readablefiles Whether to export suitable text files as UTF-8.
+     * @param bool $legacyfiles Whether to force legacy-compatible base64 encoding.
      */
-    public function set_readable_files(bool $readablefiles): void {
-        $this->readablefiles = $readablefiles;
+    public function set_legacy_files(bool $legacyfiles): void {
+        $this->legacyfiles = $legacyfiles;
     }
 
     public function provide_import() {
@@ -1219,7 +1219,7 @@ class qformat_xml extends qformat_default {
             ]);
             // XML normalises CR/CRLF and cannot represent every byte or Unicode character.
             // Retain base64 unless the content can round-trip without changing its bytes.
-            $readable = $this->readablefiles && $istext && preg_match(
+            $readable = !$this->legacyfiles && $istext && preg_match(
                 '/\A[\x{9}\x{A}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]*\z/u',
                 $content,
             );

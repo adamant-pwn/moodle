@@ -50,6 +50,8 @@ final class readable_files_test extends \advanced_testcase {
             'invalid utf8' => ['text/plain', "a\xffb", false],
             'invalid xml unicode' => ['text/plain', "a\xef\xbf\xbeb", false],
             'binary' => ['application/octet-stream', "\x00\xff\x01", false],
+            'png' => ['image/png', "\x89PNG\r\n\x1a\n\x00\xff", false],
+            'jpeg' => ['image/jpeg', "\xff\xd8\xff\xe0\x00\x10JFIF\x00", false],
             'binary ascii' => ['application/octet-stream', 'some bytes', false],
         ];
     }
@@ -74,10 +76,12 @@ final class readable_files_test extends \advanced_testcase {
             'filename' => 'source.txt', 'mimetype' => $mimetype,
         ], $content);
         $format = new \qformat_xml();
-        foreach ([false, true] as $enabled) {
-            $format->set_readable_files($enabled);
+        foreach ([null, true, false] as $legacy) {
+            if ($legacy !== null) {
+                $format->set_legacy_files($legacy);
+            }
             $xml = $format->write_files([$file]);
-            $encoding = $enabled && $readable ? 'utf-8' : 'base64';
+            $encoding = !$legacy && $readable ? 'utf-8' : 'base64';
             $this->assertStringContainsString('encoding="' . $encoding . '"', $xml);
             $parsed = (new \core\xml_parser())->parse('<files>' . $xml . '</files>', 0, 'UTF-8', true);
             $itemid = $format->import_files_as_draft($parsed['files']['#']['file']);
@@ -141,7 +145,7 @@ final class readable_files_test extends \advanced_testcase {
     }
 
     /**
-     * The standard export form exposes the opt-in and leaves it unchecked.
+     * The standard export form leaves legacy compatibility disabled by default.
      */
     public function test_export_form_option(): void {
         global $PAGE;
@@ -160,7 +164,7 @@ final class readable_files_test extends \advanced_testcase {
         $document = new \DOMDocument();
         @$document->loadHTML($form->render());
         $xpath = new \DOMXPath($document);
-        $checkboxes = $xpath->query('//input[@name="readablefiles" and @type="checkbox"]');
+        $checkboxes = $xpath->query('//input[@name="legacyfiles" and @type="checkbox"]');
         $this->assertCount(1, $checkboxes);
         $this->assertFalse($checkboxes->item(0)->hasAttribute('checked'));
     }
