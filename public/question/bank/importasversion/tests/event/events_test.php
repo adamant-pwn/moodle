@@ -25,8 +25,8 @@ use context_course;
  * @category  test
  * @copyright 2023 MootDACH DevCamp
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \qbank_importasversion\event\question_version_imported
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\qbank_importasversion\event\question_version_imported::class)]
 final class events_test extends \advanced_testcase {
     public function test_imported_is_logged(): void {
         global $USER;

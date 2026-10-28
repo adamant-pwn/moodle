@@ -42,8 +42,8 @@ require_once(__DIR__ . '/../classes/form/import_form.php');
  * @category  test
  * @copyright 2026 The Open University
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \qbank_importasversion\importer
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\qbank_importasversion\importer::class)]
 final class importer_merge_tags_test extends \advanced_testcase {
     protected function setUp(): void {
         parent::setUp();
@@ -244,10 +244,10 @@ final class importer_merge_tags_test extends \advanced_testcase {
     /**
      * Test import merge across multiple edge cases using data provider.
      *
-     * @dataProvider complex_tag_merge_provider
      * @param array $sourcetags
      * @param array $expected
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('complex_tag_merge_provider')]
     public function test_merge_tags_integration_scenarios(array $sourcetags, array $expected): void {
         $this->setAdminUser();
         [$course, $question] = $this->create_source_question();

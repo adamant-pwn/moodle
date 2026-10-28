@@ -326,6 +326,7 @@
             "exportquestions",
             "exporttoxml",
             "history",
+            "importasversion",
             "importquestions",
             "managecategories",
             "previewquestion",

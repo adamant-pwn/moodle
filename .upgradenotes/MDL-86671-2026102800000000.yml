@@ -1,0 +1,9 @@
+issueNumber: MDL-86671
+notes:
+  qbank_importasversion:
+    - message: >-
+        The Import question as new version question bank plugin is now included in
+        Moodle. Teachers can upload a single Moodle XML question as a new version
+        of an existing bank entry using its action menu. Existing installations of
+        the contributed plugin retain the same component name and settings.
+      type: improved

@@ -14,9 +14,12 @@ Feature: Importing a question as a new version of an existing question
     And the following "course enrolments" exist:
       | user    | course | role           |
       | teacher | C1     | editingteacher |
+    And the following "activities" exist:
+      | activity | name    | course | idnumber |
+      | qbank    | Qbank 1 | C1     | qbank1   |
     And the following "question categories" exist:
-      | contextlevel | reference | name           |
-      | Course       | C1        | Test questions |
+      | contextlevel    | reference | name           |
+      | Activity module | qbank1    | Test questions |
     And the following "questions" exist:
       | questioncategory | qtype     | name          |
       | Test questions   | truefalse | Test question |
@@ -24,15 +27,18 @@ Feature: Importing a question as a new version of an existing question
       | question      | tag        |
       | Test question | source-tag |
 
+  @javascript
   Scenario: The import process can be cancelled
-    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
     And I choose "Import a new version" action for "Test question" in the question bank
     And I press "Cancel"
     Then I should see "v1" in the "Test question" "table_row"
 
   @javascript @_file_upload
   Scenario: Question can be imported as a new version
-    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
     And I choose "Import a new version" action for "Test question" in the question bank
     And I upload "question/bank/importasversion/tests/fixtures/edited-true-false-question.xml" file to "Import" filemanager
     And I press "Import"
@@ -42,7 +48,8 @@ Feature: Importing a question as a new version of an existing question
 
   @javascript @_file_upload
   Scenario: Plain Import does not carry over the replaced version's tags
-    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
     And I choose "Import a new version" action for "Test question" in the question bank
     And I upload "question/bank/importasversion/tests/fixtures/edited-true-false-question.xml" file to "Import" filemanager
     And I press "Import"
@@ -51,7 +58,8 @@ Feature: Importing a question as a new version of an existing question
 
   @javascript @_file_upload
   Scenario: Import and merge tags carries over the replaced version's tags
-    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
     And I choose "Import a new version" action for "Test question" in the question bank
     And I upload "question/bank/importasversion/tests/fixtures/edited-true-false-question.xml" file to "Import" filemanager
     And I press "Import and merge tags"
@@ -60,7 +68,8 @@ Feature: Importing a question as a new version of an existing question
 
   @javascript @_file_upload
   Scenario: Import and merge tags unions file tags with the replaced version's tags
-    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
     And I choose "Import a new version" action for "Test question" in the question bank
     And I upload "question/bank/importasversion/tests/fixtures/merge-source-tagged.xml" file to "Import" filemanager
     And I press "Import and merge tags"
@@ -70,7 +79,8 @@ Feature: Importing a question as a new version of an existing question
 
   @javascript @_file_upload
   Scenario: Problems are displayed
-    When I am on the "Course 1" "core_question > course question bank" page logged in as teacher
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
     And I choose "Import a new version" action for "Test question" in the question bank
     And I upload "question/bank/importasversion/tests/fixtures/multiple-questions.xml" file to "Import" filemanager
     And I press "Import"
@@ -78,3 +88,13 @@ Feature: Importing a question as a new version of an existing question
     And I should see "Your file did not contain exactly one question!"
     And I should not see "The right answer is 'False'."
     And I should see "v1" in the "Test question" "table_row"
+
+  @javascript
+  Scenario: A teacher without question edit permission cannot use the import action
+    Given the following "permission overrides" exist:
+      | capability              | permission | role           | contextlevel | reference |
+      | moodle/question:editall  | Prohibit   | editingteacher | Course       | C1        |
+      | moodle/question:editmine | Prohibit   | editingteacher | Course       | C1        |
+    When I am on the "Qbank 1" "core_question > question bank" page logged in as teacher
+    And I apply question bank filter "Category" with value "Test questions"
+    Then the "Import a new version" action should not exist for the "Test question" question in the question bank

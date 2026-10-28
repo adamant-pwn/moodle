@@ -26,8 +26,8 @@ require_once($CFG->dirroot . '/question/format/xml/format.php');
  * @package qbank_importasversion
  * @copyright 2026 Oleksandr Kulkov
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers \qbank_importasversion\importer
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\qbank_importasversion\importer::class)]
 final class importer_test extends \advanced_testcase {
     /** @var \question_definition Original Ready question. */
     private $question;
@@ -77,12 +77,12 @@ final class importer_test extends \advanced_testcase {
     /**
      * Check each save outcome against a literal expected status, not a second copy of the import policy.
      *
-     * @dataProvider save_results
      * @param mixed $outcome Question-type save result.
      * @param bool $force Whether notices are allowed.
      * @param bool $draftonnotice Whether retained notices create a Draft.
      * @param string|null $expectedstatus Ready, Draft, or null when no version should be saved.
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('save_results')]
     public function test_save_result_policy($outcome, bool $force, bool $draftonnotice, ?string $expectedstatus): void {
         $this->mock_save_result($outcome);
         $result = importer::import_file(
@@ -147,10 +147,10 @@ final class importer_test extends \advanced_testcase {
     /**
      * Existing callers omit both new arguments and must retain their previous behavior.
      *
-     * @dataProvider legacy_save_results
      * @param mixed $outcome Question-type save result.
      * @param string|null $expectedstatus Ready, or null when no version should be saved.
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('legacy_save_results')]
     public function test_legacy_call($outcome, ?string $expectedstatus): void {
         $this->mock_save_result($outcome);
         $result = importer::import_file(
@@ -180,9 +180,9 @@ final class importer_test extends \advanced_testcase {
     /**
      * A real true/false save remains Ready with either form choice when there are no warnings.
      *
-     * @dataProvider warning_choices
      * @param bool $force Whether the repair checkbox is checked.
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('warning_choices')]
     public function test_valid_question_imports(bool $force): void {
         $result = importer::import_file(
             $this->format,
