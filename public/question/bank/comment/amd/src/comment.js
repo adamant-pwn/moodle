@@ -43,6 +43,7 @@ const commentEvent = async(questionId, courseID, contextId) => {
     const modal = await SaveCancelModal.create({
         title: getString('commentheader', 'qbank_comment'),
         body: Fragment.loadFragment('qbank_comment', 'question_comment', contextId, args),
+        executeExternalScripts: true,
         large: true,
         show: true,
         buttons: {

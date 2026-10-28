@@ -47,3 +47,19 @@ Feature: Use the qbank plugin manager page for question usage
     And I should see "1" on the usage column
     When I click "1" on the usage column
     Then "Test quiz" "table_row" should exist in the "question-usage_table" "region"
+
+  @javascript
+  Scenario Outline: External <scriptkind> scripts execute once before filtering the question usage preview
+    Given the following config values are set as admin:
+      | enabletrusttext | 1 |
+    And the following "questions" exist:
+      | questioncategory      | qtype     | name                     | questiontext                                                                                                               |
+      | Default for Test quiz | truefalse | External script question | <span data-mdl-89548>External script not loaded</span><script type="<scripttype>" src="../lib/tests/fixtures/<scriptfile>"></script><script type="<scripttype>" src="../lib/tests/fixtures/mdl_89548_second.js"></script><script nomodule src="../lib/tests/fixtures/mdl_89548.js"></script><script type="application/json" src="../lib/tests/fixtures/mdl_89548.js"></script> |
+    And I am on the "Test quiz" "mod_quiz > question bank" page logged in as "admin"
+    When I click on "0" "link" in the "External script question" "table_row"
+    Then I should see "External script executed 1 time before filtering; order first,second" in the ".modal-dialog" "css_element"
+
+    Examples:
+      | scriptkind | scripttype      | scriptfile            |
+      | classic    | text/javascript | mdl_89548.js           |
+      | module     | module          | mdl_89548_delayed.php  |
