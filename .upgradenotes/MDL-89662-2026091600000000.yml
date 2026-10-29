@@ -1,0 +1,11 @@
+issueNumber: MDL-89662
+notes:
+  core_form:
+    - message: >-
+        Text editors can override texteditor::provides_file_manager() when they
+        provide their own visible embedded-file manager. Other editors receive
+        the generic Manage files link from the editor form element when file
+        management is enabled. The enable_filemanagement editor option can
+        disable this control. The generic manager opens separately so unsaved
+        editor text is retained.
+      type: improved

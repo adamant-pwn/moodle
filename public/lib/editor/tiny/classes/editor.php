@@ -136,6 +136,15 @@ class editor extends \texteditor {
     }
 
     /**
+     * Tiny provides its own embedded-file manager through the media plugin.
+     *
+     * @return bool
+     */
+    public function provides_file_manager(): bool {
+        return true;
+    }
+
+    /**
      * Use this editor for given element.
      *
      * @param string $elementid

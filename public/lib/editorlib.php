@@ -202,6 +202,18 @@ abstract class texteditor {
     abstract public function supports_repositories();
 
     /**
+     * Whether this editor provides its own visible embedded-file manager.
+     *
+     * Editors which return false use the generic manager supplied by the editor form element.
+     *
+     * @return bool
+     * @since Moodle 5.3
+     */
+    public function provides_file_manager(): bool {
+        return false;
+    }
+
+    /**
      * @var string $text The text set to the editor in the form.
      * @since 3.0
      */

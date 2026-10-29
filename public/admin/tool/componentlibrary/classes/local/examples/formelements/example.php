@@ -112,7 +112,8 @@ class example extends \moodleform {
         }
 
         // Editor.
-        $mform->addElement('editor', 'editor', 'Editor');
+        $editoroptions = ['context' => \context_system::instance(), 'maxfiles' => 3];
+        $mform->addElement('editor', 'editor', 'Editor', null, $editoroptions);
         $mform->setType('editor', PARAM_RAW);
         if ($required) {
             $mform->addRule('editor', 'This element is required', 'required', null, 'client');
@@ -121,6 +122,16 @@ class example extends \moodleform {
             $mform->addHelpButton('editor', 'summary');
         }
         $mform->setAdvanced('editor', true);
+
+        // Compare the same editor with attachment management disabled.
+        $mform->addElement(
+            'editor',
+            'editorwithoutfiles',
+            'Editor without file management',
+            null,
+            $editoroptions + ['enable_filemanagement' => false],
+        );
+        $mform->setType('editorwithoutfiles', PARAM_RAW);
 
         // Filepicker.
         $mform->addElement('filepicker', 'userfile', 'Filepicker', null, ['maxbytes' => 100, 'accepted_types' => '*']);
