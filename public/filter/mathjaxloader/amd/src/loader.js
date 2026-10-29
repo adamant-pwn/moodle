@@ -23,6 +23,11 @@ import {
     eventTypes,
     notifyFilterContentRenderingComplete,
 } from 'core_filters/events';
+import * as Scoped from 'filter_mathjaxloader/scoped';
+
+// Keep the administrator configuration separate from MathJax runtime defaults.
+let adminTexConfig = {};
+let configured = false;
 
 /**
  * URL to MathJax.
@@ -49,8 +54,7 @@ export const configure = (params) => {
         if (params.mathjaxconfig !== '') {
             config = JSON.parse(params.mathjaxconfig);
         }
-    }
-    catch (e) {
+    } catch (e) {
         window.console.error('Invalid JSON in mathjaxconfig.', e);
     }
     if (typeof config != 'object') {
@@ -85,11 +89,13 @@ export const configure = (params) => {
     // configure() may be called more than once when AJAX fragments are loaded (e.g., block edit forms).
     if (!mathJaxLoaded) {
         window.MathJax = config;
+        adminTexConfig = JSON.parse(JSON.stringify(config.tex || {}));
     }
 
     // Listen for events triggered when new text is added to a page that needs
     // processing by a filter.
     document.addEventListener(eventTypes.filterContentUpdated, contentUpdated);
+    configured = true;
 };
 
 /**
@@ -98,25 +104,63 @@ export const configure = (params) => {
  * @param {HTMLElement} node The Node to be processed by MathJax
  * @private
  */
-const typesetNode = (node) => {
+const typesetNode = async(node) => {
     if (!(node instanceof HTMLElement)) {
         // We may have been passed a #text node.
         // These cannot be formatted.
         return;
     }
 
-    loadMathJax().then(() => {
-        // Chain the calls to typesetPromise as it is recommended.
-        // https://docs.mathjax.org/en/v3.2-latest/web/typeset.html#handling-asynchronous-typesetting.
-        window.MathJax.startup.promise = window.MathJax.startup.promise
-            .then(() => window.MathJax.typesetPromise([node]))
-            .then(() => {
-                notifyFilterContentRenderingComplete([node]);
-            })
-            .catch(e => {
-                window.console.log(e);
-            });
+    await queueTypeset(node).catch(e => window.console.log(e));
+};
+
+/**
+ * Serialize both ordinary and scoped rendering with the shared MathJax queue.
+ *
+ * @param {HTMLElement} node Container to render
+ * @returns {Promise} Rendering completion
+ */
+const queueTypeset = async(node) => {
+    await loadMathJax();
+    const result = window.MathJax.startup.promise.then(async() => {
+        const scope = Scoped.find(node);
+        if (scope) {
+            await Scoped.render(scope);
+        } else {
+            await Scoped.renderOrdinary(node);
+        }
+        notifyFilterContentRenderingComplete([node]);
+        return undefined;
     });
+    // A rejected contribution must not disable unrelated mathematics on the page.
+    window.MathJax.startup.promise = result.catch(() => undefined);
+    return result;
+};
+
+/**
+ * Typeset a trusted plugin-owned container with isolated TeX configuration.
+ *
+ * Call once, after configure() and before the container's first filter update.
+ * AJAX updates within the registered element reuse its configuration. A replacement
+ * element must be registered explicitly. Never select the element or configuration
+ * from user-authored markup, and never include untrusted mathematics in the scope.
+ * Requires MathJax 4. Explicit administrator options cannot be overridden.
+ *
+ * @param {HTMLElement} node Connected, not-yet-typeset container owned by the calling plugin
+ * @param {Object} config Built-in package names in packages and additional options in tex
+ * @returns {Promise} Initial rendering completion; rejects invalid or conflicting contributions
+ */
+export const typesetWithConfig = async(node, config) => {
+    if (!configured) {
+        throw new Error('Configure the MathJax filter before registering a scope.');
+    }
+    Scoped.register(node, config, adminTexConfig);
+    try {
+        await queueTypeset(node);
+    } catch (error) {
+        Scoped.unregister(node);
+        throw error;
+    }
 };
 
 /**
@@ -135,28 +179,23 @@ export const typeset = () => {
  * @param {CustomEvent} event - Custom event with "nodes" indicating the root of the updated nodes.
  */
 export const contentUpdated = (event) => {
-    let listOfElementContainMathJax = [];
-    let hasMathJax = false;
-    // The list of HTMLElements in an Array.
-    event.detail.nodes.forEach((node) => {
+    const nodes = new Set();
+    event.detail.nodes.forEach(node => {
         if (!(node instanceof HTMLElement)) {
-            // We may have been passed a #text node.
             return;
         }
-        const mathjaxElements = node.querySelectorAll('.filter_mathjaxloader_equation');
-        if (mathjaxElements.length > 0) {
-            hasMathJax = true;
+        const scope = Scoped.find(node);
+        if (scope) {
+            nodes.add(scope.node);
+        } else {
+            if (node.matches('.filter_mathjaxloader_equation')) {
+                nodes.add(node);
+            }
+            node.querySelectorAll('.filter_mathjaxloader_equation').forEach(element => nodes.add(element));
+            Scoped.within(node).forEach(element => nodes.add(element));
         }
-        listOfElementContainMathJax.push(mathjaxElements);
     });
-
-    if (!hasMathJax) {
-        return;
-    }
-
-    listOfElementContainMathJax.forEach((mathjaxElements) => {
-        mathjaxElements.forEach((node) => typesetNode(node));
-    });
+    nodes.forEach(node => typesetNode(node));
 };
 
 /**
