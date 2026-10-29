@@ -37,6 +37,12 @@ let mathJaxUrl = null;
 let mathJaxLoaded = null;
 
 /**
+ * Last site configuration applied before loading, excluding later plugin additions.
+ * @type {string|null}
+ */
+let mathJaxConfigKey = null;
+
+/**
  * Called by the filter when it is active on any page.
  * This does not load MathJAX yet - it adds the configuration in case it gets loaded later.
  * It also subscribes to the filter-content-updated event so MathJax can respond to content loaded by Ajax.
@@ -81,10 +87,13 @@ export const configure = (params) => {
 
     mathJaxUrl = params.mathjaxurl;
 
-    // Only set window.MathJax if MathJax has not started loading yet.
-    // configure() may be called more than once when AJAX fragments are loaded (e.g., block edit forms).
-    if (!mathJaxLoaded) {
+    // AJAX fragments may repeat the site configuration before MathJax starts loading.
+    // Keep any packages and startup hooks added in the meantime when that configuration is unchanged.
+    // A genuinely different site configuration still replaces the pending configuration.
+    const configKey = JSON.stringify([mathJaxUrl, config]);
+    if (!mathJaxLoaded && configKey !== mathJaxConfigKey) {
         window.MathJax = config;
+        mathJaxConfigKey = configKey;
     }
 
     // Listen for events triggered when new text is added to a page that needs
