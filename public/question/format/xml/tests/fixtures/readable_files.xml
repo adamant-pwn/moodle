@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz>
+  <question type="description">
+    <name><text>Readable attachment example</text></name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Attachments: <a href="@@PLUGINFILE@@/notation.css">CSS source</a> and <a href="@@PLUGINFILE@@/example.js">JavaScript source</a>.</p>]]></text>
+      <file name="notation.css" path="/" encoding="utf-8" xml:space="preserve"><![CDATA[
+.vector {
+  font-weight: bold;
+}
+]]></file>
+      <file name="example.js" path="/" encoding="utf-8" xml:space="preserve"><![CDATA[// Readable source; attached for inspection, not executed by this question.
+const message = "α < β & γ";
+]]></file>
+    </questiontext>
+    <generalfeedback format="html"><text></text></generalfeedback>
+    <defaultgrade>0</defaultgrade>
+    <penalty>0</penalty>
+    <hidden>0</hidden>
+  </question>
+</quiz>

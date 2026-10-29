@@ -61,4 +61,31 @@ final class xml_parser_test extends \basic_testcase {
         $this->assertEquals($serialised, serialize((new xml_parser())->parse($xml)));
         $this->assertEquals(unserialize($serialised), (new xml_parser())->parse($xml));
     }
+
+    /**
+     * xml:space applies to descendants, resets with default, and does not affect siblings.
+     */
+    public function test_xml_space(): void {
+        $xml = '<root><keep xml:space="preserve"><child>  </child>' .
+            '<reset xml:space="default">  </reset></keep><other>  </other></root>';
+        $parser = new xml_parser();
+        $data = $parser->parse($xml, 0, 'UTF-8', true)['root']['#'];
+        $this->assertSame('  ', $data['keep'][0]['#']['child'][0]['#']);
+        $this->assertSame('', $data['keep'][0]['#']['reset'][0]['#']);
+        $this->assertSame('', $data['other'][0]['#']);
+        $this->assertSame('', $parser->parse('<root>  </root>')['root']['#']);
+    }
+
+    /**
+     * CDATA escaping alone does not preserve whitespace-only character data.
+     */
+    public function test_cdata_whitespace_preservation(): void {
+        $content = " \t\n\n  ";
+        $xml = '<root><legacy><![CDATA[' . $content . ']]></legacy>' .
+            '<preserved xml:space="preserve"><![CDATA[' . $content . ']]></preserved></root>';
+        $data = (new xml_parser())->parse($xml, 0, 'UTF-8', true)['root']['#'];
+        $this->assertSame('', $data['legacy'][0]['#']);
+        $this->assertSame($content, $data['preserved'][0]['#']);
+    }
+
 }

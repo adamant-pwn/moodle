@@ -89,6 +89,13 @@ class export_form extends moodleform {
         $mform->setDefault('cattofile', 1);
         $mform->setDefault('contexttofile', 1);
 
+        if (isset($fileformatnames['xml'])) {
+            $mform->addElement('advcheckbox', 'legacyfiles', get_string('legacyfiles', 'qformat_xml'));
+            $mform->addHelpButton('legacyfiles', 'legacyfiles', 'qformat_xml');
+            $mform->setDefault('legacyfiles', 0);
+            $mform->hideIf('legacyfiles', 'format', 'neq', 'xml');
+        }
+
         // Set a template for the format select elements.
         $renderer = $mform->defaultRenderer();
         $template = "{help} {element}\n";
