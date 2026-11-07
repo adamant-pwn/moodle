@@ -822,12 +822,15 @@ final class manager_test extends \advanced_testcase {
      * @return void
      */
     public function test_apply_preset_deprecated_plugintype(): void {
-        global $CFG;
+        global $CFG, $DB;
         $this->resetAfterTest();
 
         // Create a preset.
         $generator = $this->getDataGenerator()->get_plugin_generator('core_adminpresets');
         $presetid = $generator->create_preset();
+
+        // Unrelated plugin changes can reset the plugin manager cache during this test.
+        $DB->delete_records('adminpresets_plug', ['adminpresetid' => $presetid]);
 
         // Add a mock plugin into the preset. This plugin will be mocked and deprecated below.
         helper::add_plugin($presetid, 'fake', 'fullfeatured', true);
@@ -846,7 +849,7 @@ final class manager_test extends \advanced_testcase {
         // Finally, check apply_preset method, verifying the deprecated plugin is skipped.
         $manager = new manager();
         [$applied, $skipped] = $manager->apply_preset($presetid);
-        $this->assertdebuggingcalledcount(2); // Expected unit-test-only debugging, as above.
+        $this->assertDebuggingCalled(); // Expected unit-test-only debugging, as above.
         $this->assertContains('fake', array_column($skipped, 'plugin'));
     }
 
