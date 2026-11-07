@@ -1073,13 +1073,37 @@ final class imsenterprise_test extends \advanced_testcase {
 </enterprise>';
 
         // Creating the XML file.
-        $filename = 'ims_' . rand(1000, 9999) . '.xml';
         $tmpdir = make_temp_directory('enrol_imsenterprise');
-        $xmlfilepath = $tmpdir . '/' . $filename;
+        $xmlfilepath = tempnam($tmpdir, 'ims_');
         file_put_contents($xmlfilepath, $xmlcontent);
 
         // Setting the file path in CFG.
         $this->imsplugin->set_config('imsfilelocation', $xmlfilepath);
+    }
+
+    /**
+     * Creating another import file must preserve the previous file even if random values repeat.
+     */
+    #[\PHPUnit\Framework\Attributes\CoversNothing]
+    public function test_xml_files_do_not_overwrite_each_other(): void {
+        try {
+            mt_srand(1);
+            $this->set_xml_file();
+            $firstpath = $this->imsplugin->get_config('imsfilelocation');
+            $firstcontents = file_get_contents($firstpath);
+
+            // Reproduce the filename collision without relying on chance.
+            mt_srand(1);
+            $course = (object) ['idnumber' => 'newcourse'];
+            $this->set_xml_file(false, [$course]);
+            $secondpath = $this->imsplugin->get_config('imsfilelocation');
+        } finally {
+            mt_srand();
+        }
+
+        $this->assertNotSame($firstpath, $secondpath);
+        $this->assertSame($firstcontents, file_get_contents($firstpath));
+        $this->assertStringContainsString('<id>newcourse</id>', file_get_contents($secondpath));
     }
 
     /**
