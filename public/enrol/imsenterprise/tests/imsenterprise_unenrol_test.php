@@ -173,9 +173,8 @@ final class imsenterprise_unenrol_test extends \advanced_testcase {
         $xmlcontent .= '</enterprise>';
 
         // Creating the XML file.
-        $filename = 'ims_' . rand(1000, 9999) . '.xml';
         $tmpdir = make_temp_directory('enrol_imsenterprise');
-        $xmlfilepath = $tmpdir . '/' . $filename;
+        $xmlfilepath = tempnam($tmpdir, 'ims_');
         file_put_contents($xmlfilepath, $xmlcontent);
 
         // Setting the file path in CFG.
